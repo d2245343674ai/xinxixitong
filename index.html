@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>医院挂号系统</title>
+<style>
+  :root {
+    --primary: #2f7ee5;
+    --primary-dark: #1f5fb0;
+    --success: #22a06b;
+    --danger: #e5534b;
+    --warn: #e8a13a;
+    --bg: #f4f6fa;
+    --card: #ffffff;
+    --text: #2b3440;
+    --muted: #7a8699;
+    --border: #e3e8ef;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .topbar {
+    background: linear-gradient(135deg, #2f7ee5, #1f5fb0);
+    color: #fff;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .topbar h1 { font-size: 20px; font-weight: 600; }
+  .topbar .sub { font-size: 12px; opacity: .85; margin-top: 2px; }
+  nav {
+    background: var(--card);
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    overflow-x: auto;
+  }
+  nav button {
+    background: none;
+    border: none;
+    padding: 14px 20px;
+    font-size: 15px;
+    color: var(--muted);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+    font-family: inherit;
+  }
+  nav button.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    font-weight: 600;
+  }
+  main { max-width: 1100px; margin: 24px auto; padding: 0 20px; }
+  .section { display: none; }
+  .section.active { display: block; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .card h2 { font-size: 17px; margin-bottom: 16px; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; }
+  label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 4px; }
+  input, select {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    width: 100%;
+    background: #fff;
+    color: var(--text);
+  }
+  input:focus, select:focus { outline: none; border-color: var(--primary); }
+  .field { flex: 1; min-width: 150px; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: inherit;
+    font-size: 14px;
+    padding: 9px 18px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    background: var(--primary);
+    color: #fff;
+    transition: .15s;
+  }
+  .btn:hover { background: var(--primary-dark); }
+  .btn.secondary { background: #eef2f7; color: var(--text); }
+  .btn.secondary:hover { background: #e2e8f0; }
+  .btn.danger { background: var(--danger); }
+  .btn.small { padding: 5px 12px; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { background: #f8fafc; color: var(--muted); font-weight: 600; font-size: 13px; }
+  tr:hover td { background: #fafbfd; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; }
+  .badge.green { background: #e6f6ef; color: var(--success); }
+  .badge.orange { background: #fdf1e0; color: var(--warn); }
+  .badge.gray { background: #eef2f7; color: var(--muted); }
+  .badge.red { background: #fdecea; color: var(--danger); }
+  .empty { color: var(--muted); text-align: center; padding: 30px 0; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .grid-2 { grid-template-columns: 1fr; } }
+  .slot { 
+    display: inline-block; padding: 8px 14px; margin: 4px; border: 1px solid var(--border);
+    border-radius: 6px; cursor: pointer; font-size: 13px; user-select: none;
+  }
+  .slot.available { color: var(--primary); border-color: var(--primary); background: #f3f8ff; }
+  .slot.available:hover { background: var(--primary); color: #fff; }
+  .slot.full { color: var(--muted); background: #f4f6fa; cursor: not-allowed; }
+  .slot.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .tag { display:inline-block; padding: 1px 8px; border-radius: 4px; font-size: 12px; background:#eef2f7; color:var(--muted); margin-right:4px; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>医院挂号系统</h1>
+      <div class="sub">HIS · 门诊预约挂号平台</div>
+    </div>
+    <div style="text-align:right; font-size:13px;" id="todayLabel"></div>
+  </div>
+
+  <nav id="nav">
+    <button data-tab="booking" class="active">患者挂号</button>
+    <button data-tab="schedule">排班管理</button>
+    <button data-tab="records">挂号记录</button>
+    <button data-tab="visits">就诊记录</button>
+    <button data-tab="manage">科室/医生管理</button>
+  </nav>
+
+  <main>
+    <!-- 患者挂号 -->
+    <section id="tab-booking" class="section active">
+      <div class="card">
+        <h2>选择科室与医生</h2>
+        <div class="row">
+          <div class="field">
+            <label>科室</label>
+            <select id="bk-department"></select>
+          </div>
+          <div class="field">
+            <label>医生</label>
+            <select id="bk-doctor"></select>
+          </div>
+          <div class="field">
+            <label>就诊日期</label>
+            <select id="bk-date"></select>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>选择时段</h2>
+        <div id="bk-slots" class="empty">请先选择科室、医生和日期</div>
+      </div>
+      <div class="card">
+        <h2>填写患者信息</h2>
+        <div class="row">
+          <div class="field">
+            <label>患者姓名</label>
+            <input type="text" id="bk-name" placeholder="请输入姓名">
+          </div>
+          <div class="field">
+            <label>手机号</label>
+            <input type="text" id="bk-phone" placeholder="请输入手机号">
+          </div>
+          <div class="field">
+            <label>身份证号（选填）</label>
+            <input type="text" id="bk-idcard" placeholder="请输入身份证号">
+          </div>
+        </div>
+        <div style="margin-top:16px;">
+          <button class="btn" id="bk-submit">确认挂号</button>
+          <span class="hint" id="bk-summary"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 排班管理 -->
+    <section id="tab-schedule" class="section">
+      <div class="card">
+        <h2>新增排班</h2>
+        <div class="row">
+          <div class="field">
+            <label>医生</label>
+            <select id="sc-doctor"></select>
+          </div>
+          <div class="field">
+            <label>日期</label>
+            <input type="date" id="sc-date">
+          </div>
+          <div class="field">
+            <label>时段</label>
+            <select id="sc-time"></select>
+          </div>
+          <div class="field">
+            <label>号源数量</label>
+            <input type="number" id="sc-capacity" value="10" min="1">
+          </div>
+          <div class="field" style="display:flex; align-items:flex-end;">
+            <button class="btn" id="sc-add">添加排班</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>现有排班</h2>
+        <div class="row" style="margin-bottom:16px;">
+          <div class="field"><label>筛选医生</label><select id="sc-filter"><option value="">全部医生</option></select></div>
+        </div>
+        <div id="sc-list"></div>
+      </div>
+    </section>
+
+    <!-- 挂号记录 -->
+    <section id="tab-records" class="section">
+      <div class="card">
+        <h2>查询挂号记录</h2>
+        <div class="row">
+          <div class="field">
+            <label>患者姓名 / 手机号</label>
+            <input type="text" id="rc-keyword" placeholder="输入姓名或手机号查询">
+          </div>
+          <div class="field">
+            <label>状态</label>
+            <select id="rc-status">
+              <option value="">全部</option>
+              <option value="pending">待就诊</option>
+              <option value="done">已完成</option>
+              <option value="cancelled">已取消</option>
+            </select>
+          </div>
+          <div class="field" style="display:flex; align-items:flex-end;">
+            <button class="btn" id="rc-search">查询</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>记录列表</h2>
+        <div id="rc-list"></div>
+      </div>
+    </section>
+
+    <!-- 就诊记录 -->
+    <section id="tab-visits" class="section">
+      <div id="visits-list-view">
+        <div class="card">
+          <h2>新增就诊记录</h2>
+          <div class="row">
+            <div class="field"><label>患者姓名</label><input type="text" id="vs-name" placeholder="请输入患者姓名"></div>
+            <div class="field"><label>手机号</label><input type="text" id="vs-phone" placeholder="请输入手机号"></div>
+            <div class="field"><label>科室</label><select id="vs-department"></select></div>
+            <div class="field"><label>医生</label><select id="vs-doctor"></select></div>
+          </div>
+          <div class="row" style="margin-top:12px;">
+            <div class="field" style="flex:2;"><label>诊断</label><input type="text" id="vs-diagnosis" placeholder="请输入诊断结果"></div>
+            <div class="field" style="flex:2;"><label>医嘱 / 处方（选填）</label><input type="text" id="vs-prescription" placeholder="请输入医嘱或处方"></div>
+            <div class="field" style="display:flex; align-items:flex-end;"><button class="btn" id="vs-add">保存就诊记录</button></div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>就诊记录列表</h2>
+          <div id="vs-list"></div>
+        </div>
+      </div>
+      <div id="visits-detail-view" style="display:none;"></div>
+    </section>
+
+    <!-- 科室/医生管理 -->
+    <section id="tab-manage" class="section">
+      <div class="grid-2">
+        <div class="card">
+          <h2>科室管理</h2>
+          <div class="row" style="margin-bottom:16px;">
+            <div class="field"><input type="text" id="mg-dept-name" placeholder="新科室名称"></div>
+            <div class="field" style="max-width:110px;"><button class="btn" id="mg-dept-add">添加</button></div>
+          </div>
+          <div id="mg-dept-list"></div>
+        </div>
+        <div class="card">
+          <h2>医生管理</h2>
+          <div class="row" style="margin-bottom:16px;">
+            <div class="field"><input type="text" id="mg-doc-name" placeholder="医生姓名"></div>
+            <div class="field"><input type="text" id="mg-doc-title" placeholder="职称"></div>
+            <div class="field">
+              <select id="mg-doc-dept"></select>
+            </div>
+          </div>
+          <div class="row" style="margin-bottom:16px;">
+            <div class="field"><input type="text" id="mg-doc-specialty" placeholder="擅长领域"></div>
+            <div class="field" style="max-width:110px;"><button class="btn" id="mg-doc-add">添加</button></div>
+          </div>
+          <div id="mg-doc-list"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+<script>
+const STORE_KEY = 'his_registration_data_v1';
+const TIME_SLOTS = [
+  { key: 'am', label: '上午 08:00-12:00' },
+  { key: 'pm', label: '下午 14:00-18:00' },
+  { key: 'night', label: '晚间 18:00-21:00' }
+];
+
+function uid(prefix) {
+  return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function todayStr(offset) {
+  const d = new Date();
+  d.setDate(d.getDate() + (offset || 0));
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function seedData() {
+  const depts = [
+    { id: 'dept_neike', name: '内科' },
+    { id: 'dept_waike', name: '外科' },
+    { id: 'dept_erke', name: '儿科' },
+    { id: 'dept_fuchanke', name: '妇产科' },
+    { id: 'dept_kouqiang', name: '口腔科' },
+    { id: 'dept_yanke', name: '眼科' }
+  ];
+  const doctors = [
+    { id: 'doc_1', name: '张伟', title: '主任医师', specialty: '心血管疾病', departmentId: 'dept_neike' },
+    { id: 'doc_2', name: '李娜', title: '副主任医师', specialty: '消化系统', departmentId: 'dept_neike' },
+    { id: 'doc_3', name: '王强', title: '主治医师', specialty: '普外科', departmentId: 'dept_waike' },
+    { id: 'doc_4', name: '刘洋', title: '主任医师', specialty: '骨科', departmentId: 'dept_waike' },
+    { id: 'doc_5', name: '陈静', title: '主治医师', specialty: '小儿内科', departmentId: 'dept_erke' },
+    { id: 'doc_6', name: '赵敏', title: '副主任医师', specialty: '妇科', departmentId: 'dept_fuchanke' },
+    { id: 'doc_7', name: '孙磊', title: '主治医师', specialty: '口腔修复', departmentId: 'dept_kouqiang' },
+    { id: 'doc_8', name: '周婷', title: '主任医师', specialty: '眼底疾病', departmentId: 'dept_yanke' }
+  ];
+  const schedules = [];
+  doctors.forEach((doc, i) => {
+    for (let d = 0; d < 7; d++) {
+      // 每位医生只排部分时段，制造差异
+      TIME_SLOTS.forEach((slot, si) => {
+        if ((i + d + si) % 3 === 0) return;
+        schedules.push({
+          id: uid('sch'),
+          doctorId: doc.id,
+          date: todayStr(d),
+          timeSlot: slot.key,
+          capacity: 8 + ((i * 3 + d) % 8)
+        });
+      });
+    }
+  });
+  return { departments: depts, doctors, schedules, registrations: [], visits: seedVisits() };
+}
+
+function seedVisits() {
+  const now = Date.now();
+  const mk = (patientName, phone, departmentId, doctorId, diagnosis, prescription, hoursAgo) => ({
+    id: uid('visit'),
+    patientName,
+    phone,
+    departmentId,
+    doctorId,
+    diagnosis,
+    prescription,
+    visitTime: new Date(now - hoursAgo * 3600 * 1000).toISOString(),
+    createdAt: new Date(now - hoursAgo * 3600 * 1000).toISOString()
+  });
+  return [
+    mk('王建国', '13800000001', 'dept_neike', 'doc_1', '高血压（Ⅱ级）', '苯磺酸氨氯地平片 5mg qd；低盐饮食', 26),
+    mk('李秀兰', '13900000002', 'dept_waike', 'doc_4', '腰椎间盘突出', '布洛芬缓释胶囊；建议卧床休息一周', 50),
+    mk('张晓明', '13700000003', 'dept_erke', 'doc_5', '急性上呼吸道感染', '小儿豉翘清热颗粒；多饮水', 74),
+    mk('赵丽', '13600000004', 'dept_fuchanke', 'doc_6', '慢性盆腔炎', '甲硝唑片 0.4g bid；注意休息', 98),
+    mk('陈晨', '13500000005', 'dept_kouqiang', 'doc_7', '龋齿', '根管治疗一次；注意口腔卫生', 120)
+  ];
+}
+
+function load() {
+  const raw = localStorage.getItem(STORE_KEY);
+  if (!raw) {
+    const data = seedData();
+    save(data);
+    return data;
+  }
+  try { return JSON.parse(raw); }
+  catch (e) { return seedData(); }
+}
+
+function save(data) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(data));
+}
+
+let db = load();
+if (!Array.isArray(db.visits)) {
+  db.visits = seedVisits();
+  save(db);
+}
+
+function $(id) { return document.getElementById(id); }
+
+function deptName(id) {
+  const d = db.departments.find(x => x.id === id);
+  return d ? d.name : '未知科室';
+}
+function docName(id) {
+  const d = db.doctors.find(x => x.id === id);
+  return d ? d.name : '未知医生';
+}
+function timeLabel(key) {
+  const s = TIME_SLOTS.find(x => x.key === key);
+  return s ? s.label : key;
+}
+
+/* ---------- 导航 ---------- */
+document.getElementById('nav').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  document.querySelectorAll('#nav button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  $('tab-' + btn.dataset.tab).classList.add('active');
+  renderAll();
+});
+
+/* ---------- 通用渲染 ---------- */
+function renderAll() {
+  renderBooking();
+  renderSchedule();
+  renderRecords();
+  renderVisits();
+  renderManage();
+}
+
+function fillDeptSelect(sel, includeAll) {
+  sel.innerHTML = '';
+  if (includeAll) {
+    const o = document.createElement('option');
+    o.value = ''; o.textContent = '全部科室';
+    sel.appendChild(o);
+  }
+  db.departments.forEach(d => {
+    const o = document.createElement('option');
+    o.value = d.id; o.textContent = d.name;
+    sel.appendChild(o);
+  });
+}
+
+function fillDoctorSelect(sel, deptId, includeAll) {
+  sel.innerHTML = '';
+  if (includeAll) {
+    const o = document.createElement('option');
+    o.value = ''; o.textContent = '请选择医生';
+    sel.appendChild(o);
+  }
+  const list = deptId ? db.doctors.filter(x => x.departmentId === deptId) : db.doctors;
+  list.forEach(d => {
+    const o = document.createElement('option');
+    o.value = d.id; o.textContent = d.name + '（' + d.title + '）';
+    sel.appendChild(o);
+  });
+}
+
+/* ---------- 患者挂号 ---------- */
+let bkSelectedSlot = null;
+
+function renderBooking() {
+  fillDeptSelect($('bk-department'), true);
+  const deptId = $('bk-department').value;
+  fillDoctorSelect($('bk-doctor'), deptId, true);
+  fillBookingDates();
+  renderBookingSlots();
+  updateBookingSummary();
+}
+
+function fillBookingDates() {
+  const sel = $('bk-date');
+  sel.innerHTML = '';
+  for (let d = 0; d < 7; d++) {
+    const o = document.createElement('option');
+    o.value = todayStr(d);
+    const date = new Date(); date.setDate(date.getDate() + d);
+    const week = ['日','一','二','三','四','五','六'][date.getDay()];
+    o.textContent = todayStr(d) + ' 周' + week + (d === 0 ? '（今天）' : '');
+    sel.appendChild(o);
+  }
+}
+
+function renderBookingSlots() {
+  const container = $('bk-slots');
+  bkSelectedSlot = null;
+  const doctorId = $('bk-doctor').value;
+  const date = $('bk-date').value;
+  if (!doctorId) {
+    container.innerHTML = '<div class="empty">请先选择医生</div>';
+    updateBookingSummary();
+    return;
+  }
+  container.innerHTML = '';
+  TIME_SLOTS.forEach(slot => {
+    const sch = db.schedules.find(s => s.doctorId === doctorId && s.date === date && s.timeSlot === slot.key);
+    const booked = db.registrations.filter(r => r.scheduleId && r.status !== 'cancelled')
+      .filter(r => {
+        const s = db.schedules.find(x => x.id === r.scheduleId);
+        return s && s.doctorId === doctorId && s.date === date && s.timeSlot === slot.key;
+      }).length;
+    const el = document.createElement('span');
+    if (!sch) {
+      el.className = 'slot full';
+      el.textContent = slot.label + '（未排班）';
+    } else if (booked >= sch.capacity) {
+      el.className = 'slot full';
+      el.textContent = slot.label + '（已约满）';
+    } else {
+      el.className = 'slot available';
+      el.textContent = slot.label + '（余 ' + (sch.capacity - booked) + '）';
+      el.dataset.scheduleId = sch.id;
+      el.onclick = () => {
+        container.querySelectorAll('.slot').forEach(x => x.classList.remove('selected'));
+        el.classList.add('selected');
+        bkSelectedSlot = sch.id;
+        updateBookingSummary();
+      };
+    }
+    container.appendChild(el);
+  });
+  updateBookingSummary();
+}
+
+function updateBookingSummary() {
+  const el = $('bk-summary');
+  const doctorId = $('bk-doctor').value;
+  const date = $('bk-date').value;
+  if (bkSelectedSlot) {
+    const sch = db.schedules.find(s => s.id === bkSelectedSlot);
+    el.textContent = `已选：${docName(doctorId)} · ${date} · ${timeLabel(sch.timeSlot)}`;
+  } else {
+    el.textContent = '请选择一个可预约时段';
+  }
+}
+
+$('bk-department').addEventListener('change', () => {
+  fillDoctorSelect($('bk-doctor'), $('bk-department').value, true);
+  renderBookingSlots();
+});
+$('bk-doctor').addEventListener('change', renderBookingSlots);
+$('bk-date').addEventListener('change', renderBookingSlots);
+
+$('bk-submit').addEventListener('click', () => {
+  const name = $('bk-name').value.trim();
+  const phone = $('bk-phone').value.trim();
+  const idcard = $('bk-idcard').value.trim();
+  if (!name) return alert('请输入患者姓名');
+  if (!phone || !/^1\d{10}$/.test(phone)) return alert('请输入正确的11位手机号');
+  if (!bkSelectedSlot) return alert('请选择就诊时段');
+  const sch = db.schedules.find(s => s.id === bkSelectedSlot);
+  const reg = {
+    id: uid('reg'),
+    patientName: name,
+    phone,
+    idcard,
+    doctorId: sch.doctorId,
+    departmentId: db.doctors.find(x => x.id === sch.doctorId).departmentId,
+    date: sch.date,
+    timeSlot: sch.timeSlot,
+    scheduleId: sch.id,
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  };
+  db.registrations.push(reg);
+  save(db);
+  alert('挂号成功！\n' + name + ' · ' + docName(reg.doctorId) + ' · ' + reg.date + ' ' + timeLabel(reg.timeSlot));
+  $('bk-name').value = '';
+  $('bk-phone').value = '';
+  $('bk-idcard').value = '';
+  renderBookingSlots();
+  renderRecords();
+});
+
+/* ---------- 排班管理 ---------- */
+function renderSchedule() {
+  fillDoctorSelect($('sc-doctor'), null, false);
+  fillDoctorSelect($('sc-filter'), null, true);
+  const scTime = $('sc-time');
+  scTime.innerHTML = '';
+  TIME_SLOTS.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s.key; o.textContent = s.label;
+    scTime.appendChild(o);
+  });
+  if (!$('sc-date').value) $('sc-date').value = todayStr(0);
+  renderScheduleList();
+}
+
+function renderScheduleList() {
+  const filter = $('sc-filter').value;
+  const container = $('sc-list');
+  let list = db.schedules.slice();
+  if (filter) list = list.filter(s => s.doctorId === filter);
+  list.sort((a, b) => (a.date + a.timeSlot).localeCompare(b.date + b.timeSlot));
+  if (list.length === 0) {
+    container.innerHTML = '<div class="empty">暂无排班</div>';
+    return;
+  }
+  let html = '<table><thead><tr><th>医生</th><th>科室</th><th>日期</th><th>时段</th><th>号源</th><th>已约</th><th>操作</th></tr></thead><tbody>';
+  list.forEach(s => {
+    const doc = db.doctors.find(x => x.id === s.doctorId);
+    const booked = db.registrations.filter(r => r.scheduleId === s.id && r.status !== 'cancelled').length;
+    html += `<tr>
+      <td>${docName(s.doctorId)}</td>
+      <td>${deptName(doc ? doc.departmentId : '')}</td>
+      <td>${s.date}</td>
+      <td>${timeLabel(s.timeSlot)}</td>
+      <td>${s.capacity}</td>
+      <td>${booked}/${s.capacity}</td>
+      <td><button class="btn danger small" data-del="${s.id}">删除</button></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+  container.querySelectorAll('[data-del]').forEach(btn => {
+    btn.onclick = () => {
+      if (!confirm('确定删除该排班？')) return;
+      db.schedules = db.schedules.filter(s => s.id !== btn.dataset.del);
+      save(db);
+      renderScheduleList();
+      renderBookingSlots();
+    };
+  });
+}
+
+$('sc-add').addEventListener('click', () => {
+  const doctorId = $('sc-doctor').value;
+  const date = $('sc-date').value;
+  const timeSlot = $('sc-time').value;
+  const capacity = parseInt($('sc-capacity').value, 10);
+  if (!doctorId) return alert('请选择医生');
+  if (!date) return alert('请选择日期');
+  if (!capacity || capacity < 1) return alert('请输入正确的号源数量');
+  const exist = db.schedules.find(s => s.doctorId === doctorId && s.date === date && s.timeSlot === timeSlot);
+  if (exist) return alert('该医生此时段已有排班，请勿重复添加');
+  db.schedules.push({ id: uid('sch'), doctorId, date, timeSlot, capacity });
+  save(db);
+  renderScheduleList();
+  renderBookingSlots();
+});
+
+$('sc-filter').addEventListener('change', renderScheduleList);
+
+/* ---------- 挂号记录 ---------- */
+function renderRecords() {
+  const keyword = $('rc-keyword').value.trim();
+  const status = $('rc-status').value;
+  let list = db.registrations.slice();
+  if (keyword) list = list.filter(r => r.patientName.includes(keyword) || r.phone.includes(keyword));
+  if (status) list = list.filter(r => r.status === status);
+  list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const container = $('rc-list');
+  if (list.length === 0) {
+    container.innerHTML = '<div class="empty">暂无挂号记录</div>';
+    return;
+  }
+  let html = '<table><thead><tr><th>患者</th><th>手机号</th><th>科室</th><th>医生</th><th>日期</th><th>时段</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+  list.forEach(r => {
+    const statusMap = {
+      pending: '<span class="badge orange">待就诊</span>',
+      done: '<span class="badge green">已完成</span>',
+      cancelled: '<span class="badge gray">已取消</span>'
+    };
+    let ops = '';
+    if (r.status === 'pending') {
+      ops = `<button class="btn small" data-done="${r.id}">完成</button> <button class="btn danger small" data-cancel="${r.id}">取消</button>`;
+    }
+    html += `<tr>
+      <td>${r.patientName}</td>
+      <td>${r.phone}</td>
+      <td>${deptName(r.departmentId)}</td>
+      <td>${docName(r.doctorId)}</td>
+      <td>${r.date}</td>
+      <td>${timeLabel(r.timeSlot)}</td>
+      <td>${statusMap[r.status] || r.status}</td>
+      <td>${ops}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+  container.querySelectorAll('[data-done]').forEach(btn => {
+    btn.onclick = () => {
+      const r = db.registrations.find(x => x.id === btn.dataset.done);
+      r.status = 'done'; save(db); renderRecords();
+    };
+  });
+  container.querySelectorAll('[data-cancel]').forEach(btn => {
+    btn.onclick = () => {
+      if (!confirm('确定取消该挂号？')) return;
+      const r = db.registrations.find(x => x.id === btn.dataset.cancel);
+      r.status = 'cancelled'; save(db);
+      renderRecords();
+      renderBookingSlots();
+    };
+  });
+}
+
+$('rc-search').addEventListener('click', renderRecords);
+$('rc-keyword').addEventListener('keydown', e => { if (e.key === 'Enter') renderRecords(); });
+
+/* ---------- 就诊记录 ---------- */
+let visitDetailId = null;
+
+function formatTime(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function renderVisits() {
+  fillDeptSelect($('vs-department'), true);
+  fillDoctorSelect($('vs-doctor'), $('vs-department').value, true);
+  if (visitDetailId) renderVisitDetail();
+  else renderVisitList();
+}
+
+function renderVisitList() {
+  $('visits-list-view').style.display = '';
+  $('visits-detail-view').style.display = 'none';
+  const container = $('vs-list');
+  const list = db.visits.slice().sort((a, b) => b.visitTime.localeCompare(a.visitTime));
+  if (list.length === 0) {
+    container.innerHTML = '<div class="empty">暂无就诊记录</div>';
+    return;
+  }
+  let html = '<table><thead><tr><th>患者姓名</th><th>科室</th><th>诊断</th><th>就诊时间</th><th>操作</th></tr></thead><tbody>';
+  list.forEach(v => {
+    html += `<tr>
+      <td>${v.patientName}</td>
+      <td>${deptName(v.departmentId)}</td>
+      <td>${v.diagnosis || '-'}</td>
+      <td>${formatTime(v.visitTime)}</td>
+      <td><button class="btn small" data-view="${v.id}">详情</button></td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  container.innerHTML = html;
+  container.querySelectorAll('[data-view]').forEach(btn => {
+    btn.onclick = () => {
+      visitDetailId = btn.dataset.view;
+      renderVisitDetail();
+    };
+  });
+}
+
+function renderVisitDetail() {
+  const v = db.visits.find(x => x.id === visitDetailId);
+  if (!v) { visitDetailId = null; renderVisitList(); return; }
+  $('visits-list-view').style.display = 'none';
+  $('visits-detail-view').style.display = '';
+  $('visits-detail-view').innerHTML = `
+    <div class="card">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+        <h2 style="margin:0;">就诊记录详情</h2>
+        <button class="btn secondary small" id="vs-back">返回列表</button>
+      </div>
+      <table><tbody>
+        <tr><th style="width:130px;">患者姓名</th><td>${v.patientName}</td></tr>
+        <tr><th>手机号</th><td>${v.phone || '-'}</td></tr>
+        <tr><th>科室</th><td>${deptName(v.departmentId)}</td></tr>
+        <tr><th>医生</th><td>${docName(v.doctorId)}</td></tr>
+        <tr><th>诊断</th><td>${v.diagnosis || '-'}</td></tr>
+        <tr><th>医嘱 / 处方</th><td>${v.prescription || '-'}</td></tr>
+        <tr><th>就诊时间</th><td>${formatTime(v.visitTime)}</td></tr>
+      </tbody></table>
+    </div>`;
+  $('vs-back').onclick = () => {
+    visitDetailId = null;
+    renderVisits();
+  };
+}
+
+$('vs-department').addEventListener('change', () => {
+  fillDoctorSelect($('vs-doctor'), $('vs-department').value, true);
+});
+
+$('vs-add').addEventListener('click', () => {
+  const patientName = $('vs-name').value.trim();
+  const phone = $('vs-phone').value.trim();
+  const departmentId = $('vs-department').value;
+  const doctorId = $('vs-doctor').value;
+  const diagnosis = $('vs-diagnosis').value.trim();
+  const prescription = $('vs-prescription').value.trim();
+  if (!patientName) return alert('请输入患者姓名');
+  if (!phone || !/^1\d{10}$/.test(phone)) return alert('请输入正确的11位手机号');
+  if (!departmentId) return alert('请选择科室');
+  if (!doctorId) return alert('请选择医生');
+  if (!diagnosis) return alert('请输入诊断');
+  db.visits.push({
+    id: uid('visit'),
+    patientName, phone, departmentId, doctorId, diagnosis, prescription,
+    visitTime: new Date().toISOString(),
+    createdAt: new Date().toISOString()
+  });
+  save(db);
+  $('vs-name').value = '';
+  $('vs-phone').value = '';
+  $('vs-diagnosis').value = '';
+  $('vs-prescription').value = '';
+  renderVisits();
+});
+
+/* ---------- 科室/医生管理 ---------- */
+function renderManage() {
+  fillDeptSelect($('mg-doc-dept'), false);
+  // 科室列表
+  const deptContainer = $('mg-dept-list');
+  if (db.departments.length === 0) {
+    deptContainer.innerHTML = '<div class="empty">暂无科室</div>';
+  } else {
+    let html = '<table><thead><tr><th>科室名称</th><th>医生数</th><th>操作</th></tr></thead><tbody>';
+    db.departments.forEach(d => {
+      const count = db.doctors.filter(x => x.departmentId === d.id).length;
+      html += `<tr><td>${d.name}</td><td>${count}</td>
+        <td><button class="btn danger small" data-del-dept="${d.id}">删除</button></td></tr>`;
+    });
+    html += '</tbody></table>';
+    deptContainer.innerHTML = html;
+    deptContainer.querySelectorAll('[data-del-dept]').forEach(btn => {
+      btn.onclick = () => {
+        const hasDoc = db.doctors.some(x => x.departmentId === btn.dataset.delDept);
+        if (hasDoc) return alert('该科室下仍有医生，无法删除');
+        if (!confirm('确定删除该科室？')) return;
+        db.departments = db.departments.filter(x => x.id !== btn.dataset.delDept);
+        save(db); renderAll();
+      };
+    });
+  }
+  // 医生列表
+  const docContainer = $('mg-doc-list');
+  if (db.doctors.length === 0) {
+    docContainer.innerHTML = '<div class="empty">暂无医生</div>';
+  } else {
+    let html = '<table><thead><tr><th>姓名</th><th>职称</th><th>科室</th><th>擅长</th><th>操作</th></tr></thead><tbody>';
+    db.doctors.forEach(d => {
+      html += `<tr><td>${d.name}</td><td>${d.title || '-'}</td><td>${deptName(d.departmentId)}</td><td>${d.specialty || '-'}</td>
+        <td><button class="btn danger small" data-del-doc="${d.id}">删除</button></td></tr>`;
+    });
+    html += '</tbody></table>';
+    docContainer.innerHTML = html;
+    docContainer.querySelectorAll('[data-del-doc]').forEach(btn => {
+      btn.onclick = () => {
+        if (!confirm('确定删除该医生？（其排班与挂号记录将保留）')) return;
+        db.doctors = db.doctors.filter(x => x.id !== btn.dataset.delDoc);
+        db.schedules = db.schedules.filter(s => s.doctorId !== btn.dataset.delDoc);
+        save(db); renderAll();
+      };
+    });
+  }
+}
+
+$('mg-dept-add').addEventListener('click', () => {
+  const name = $('mg-dept-name').value.trim();
+  if (!name) return alert('请输入科室名称');
+  if (db.departments.some(d => d.name === name)) return alert('该科室已存在');
+  db.departments.push({ id: uid('dept'), name });
+  save(db);
+  $('mg-dept-name').value = '';
+  renderAll();
+});
+
+$('mg-doc-add').addEventListener('click', () => {
+  const name = $('mg-doc-name').value.trim();
+  const title = $('mg-doc-title').value.trim();
+  const departmentId = $('mg-doc-dept').value;
+  const specialty = $('mg-doc-specialty').value.trim();
+  if (!name) return alert('请输入医生姓名');
+  if (!departmentId) return alert('请选择科室');
+  db.doctors.push({ id: uid('doc'), name, title, specialty, departmentId });
+  save(db);
+  $('mg-doc-name').value = '';
+  $('mg-doc-title').value = '';
+  $('mg-doc-specialty').value = '';
+  renderAll();
+});
+
+/* ---------- 初始化 ---------- */
+function init() {
+  $('todayLabel').textContent = '今天是 ' + todayStr(0) + ' ' + ['日','一','二','三','四','五','六'][new Date().getDay()] + '，欢迎使用';
+  renderAll();
+}
+init();
+</script>
+</body>
+</html>
